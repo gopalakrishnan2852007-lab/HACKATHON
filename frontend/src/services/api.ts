@@ -169,9 +169,16 @@ class ApiService {
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(2500),
       });
-      this.isBackendAvailable = res.ok;
+      if (res.ok) {
+        const data = await res.json();
+        const ok = Boolean(data && (data.success || data.status === 'ok' || data.data?.status === 'ok'));
+        this.isBackendAvailable = ok;
+        this.backendChecked = true;
+        return ok;
+      }
+      this.isBackendAvailable = false;
       this.backendChecked = true;
-      return res.ok;
+      return false;
     } catch {
       this.isBackendAvailable = false;
       this.backendChecked = true;
@@ -195,14 +202,14 @@ class ApiService {
         const res = await fetch(`${API_URL}/api/machines`, { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
-          this.isBackendAvailable = true;
-          if (Array.isArray(data) && data.length > 0) {
-            return data.map(normalizeMachine);
+          const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
+          if (list && list.length > 0) {
+            this.isBackendAvailable = true;
+            return list.map(normalizeMachine);
           }
         }
       } catch (err) {
         console.warn('Backend GET /api/machines unreachable, fallback to Supabase/Mock', err);
-        this.isBackendAvailable = false;
       }
     }
 
@@ -225,8 +232,11 @@ class ApiService {
         const res = await fetch(`${API_URL}/api/machines/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
-          this.isBackendAvailable = true;
-          return normalizeMachine(data);
+          const item = data?.data || data;
+          if (item) {
+            this.isBackendAvailable = true;
+            return normalizeMachine(item);
+          }
         }
       } catch (err) {
         console.warn(`Backend GET /api/machines/${id} error`, err);
@@ -253,9 +263,10 @@ class ApiService {
         const res = await fetch(`${API_URL}/api/machines/${encodeURIComponent(id)}/history?hours=${hours}`, { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
-          this.isBackendAvailable = true;
-          if (Array.isArray(data) && data.length > 0) {
-            return data.map((d: any) => ({
+          const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
+          if (list && list.length > 0) {
+            this.isBackendAvailable = true;
+            return list.map((d: any) => ({
               timestamp: d.timestamp || new Date().toISOString(),
               timeLabel: d.timeLabel || d.time || new Date(d.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               temperature: Number(Number(d.temperature ?? 40).toFixed(1)),
@@ -307,9 +318,10 @@ class ApiService {
         const res = await fetch(`${API_URL}/api/alerts`, { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
-          this.isBackendAvailable = true;
-          if (Array.isArray(data)) {
-            return data.map(normalizeAlert);
+          const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
+          if (list) {
+            this.isBackendAvailable = true;
+            return list.map(normalizeAlert);
           }
         }
       } catch (err) {
@@ -342,7 +354,7 @@ class ApiService {
         if (res.ok) {
           const data = await res.json();
           this.isBackendAvailable = true;
-          return normalizeAlert(data);
+          return normalizeAlert(data?.data || data);
         }
       } catch (err) {
         console.warn(`Backend PATCH /api/alerts/${id} error`, err);
@@ -368,9 +380,10 @@ class ApiService {
         const res = await fetch(`${API_URL}/api/maintenance`, { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
-          this.isBackendAvailable = true;
-          if (Array.isArray(data)) {
-            return data.map(normalizeMaintenance);
+          const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
+          if (list) {
+            this.isBackendAvailable = true;
+            return list.map(normalizeMaintenance);
           }
         }
       } catch (err) {
@@ -403,7 +416,7 @@ class ApiService {
         if (res.ok) {
           const data = await res.json();
           this.isBackendAvailable = true;
-          return normalizeMaintenance(data);
+          return normalizeMaintenance(data?.data || data);
         }
       } catch (err) {
         console.warn(`Backend PATCH /api/maintenance/${id} error`, err);
@@ -430,7 +443,7 @@ class ApiService {
         if (res.ok) {
           const data = await res.json();
           this.isBackendAvailable = true;
-          return data;
+          return data?.data || data;
         }
       } catch (err) {
         console.warn(`Backend GET /api/analytics/${machineId} error`, err);
@@ -448,7 +461,7 @@ class ApiService {
         if (res.ok) {
           const data = await res.json();
           this.isBackendAvailable = true;
-          return normalizePrediction(data, machineId);
+          return normalizePrediction(data?.data || data, machineId);
         }
       } catch (err) {
         console.warn(`Backend GET /api/predictions/${machineId} error`, err);
@@ -492,7 +505,7 @@ class ApiService {
         if (res.ok) {
           const data = await res.json();
           this.isBackendAvailable = true;
-          return normalizePrediction(data, params.machine_id);
+          return normalizePrediction(data?.data || data, params.machine_id);
         }
       } catch (err) {
         console.warn('Backend POST /api/predictions/analyze error', err);
@@ -543,7 +556,7 @@ class ApiService {
         if (res.ok) {
           const data = await res.json();
           this.isBackendAvailable = true;
-          return normalizePrediction(data, params.machine_id || 'MCH-101');
+          return normalizePrediction(data?.data || data, params.machine_id || 'MCH-101');
         }
       } catch (err) {
         console.warn('Backend POST /api/simulator/predict error', err);
@@ -581,10 +594,11 @@ class ApiService {
         if (res.ok) {
           const data = await res.json();
           this.isBackendAvailable = true;
+          const payload = data?.data || data;
           return {
-            machine: normalizeMachine(data.machine || data),
-            prediction: normalizePrediction(data.prediction, machineId),
-            alert: data.alert ? normalizeAlert(data.alert) : undefined,
+            machine: normalizeMachine(payload.machine || payload),
+            prediction: normalizePrediction(payload.prediction, machineId),
+            alert: payload.alert ? normalizeAlert(payload.alert) : undefined,
           };
         }
       } catch (err) {

@@ -1,16 +1,17 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-    --font-display: 'Chakra Petch', sans-serif;
-  }
+@theme {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-industrial: 'Chakra Petch', sans-serif;
+}
 
+@layer base {
   body {
     font-family: var(--font-sans);
-    background-color: #030712;
-    color: #f3f4f6;
+    background-color: #020617;
+    color: #f8fafc;
+    min-height: 100vh;
   }
 }
 
@@ -55,4 +56,3 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
-
