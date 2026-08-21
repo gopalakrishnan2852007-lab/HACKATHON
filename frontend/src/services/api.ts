@@ -9,8 +9,6 @@ import {
   evaluateMachinePhysicsAI,
 } from './mockData';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
-
 // Normalization utilities to guarantee consistent type contracts across UI
 export function normalizeMachine(raw: any): Machine {
   if (!raw) return INITIAL_MACHINES[0];
@@ -149,6 +147,7 @@ export function normalizePrediction(raw: any, fallbackMachineId = 'MCH-101'): Pr
 }
 
 class ApiService {
+  private activeUrl = '';
   private isBackendAvailable = false;
   private backendChecked = false;
 
@@ -156,42 +155,59 @@ class ApiService {
     this.checkBackendHealth();
   }
 
+  private getCandidateUrls(): string[] {
+    const configured = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+    const candidates = [
+      '', // Same-origin proxy via Vite (/api/...)
+      'http://localhost:5000',
+      'http://127.0.0.1:5000',
+    ];
+    if (configured && !candidates.includes(configured)) {
+      candidates.unshift(configured);
+    }
+    return candidates;
+  }
+
+  public getUrl(endpoint: string): string {
+    const clean = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    return this.activeUrl ? `${this.activeUrl}${clean}` : clean;
+  }
+
   // GET /api/health
   public async checkBackendHealth(): Promise<boolean> {
-    if (!API_URL) {
-      this.isBackendAvailable = false;
-      this.backendChecked = true;
-      return false;
-    }
-    try {
-      const res = await fetch(`${API_URL}/api/health`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(6000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const ok = Boolean(data && (data.success !== false || data.status === 'ok' || data.data?.status === 'ok'));
-        this.isBackendAvailable = ok;
-        this.backendChecked = true;
-        return ok;
+    const candidates = this.getCandidateUrls();
+    for (const base of candidates) {
+      try {
+        const res = await fetch(`${base}/api/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const ok = Boolean(data && (data.success !== false || data.status === 'ok' || data.data?.status === 'ok'));
+          if (ok) {
+            this.activeUrl = base;
+            this.isBackendAvailable = true;
+            this.backendChecked = true;
+            return true;
+          }
+        }
+      } catch {
+        // Continue to next candidate
       }
-      this.isBackendAvailable = false;
-      this.backendChecked = true;
-      return false;
-    } catch {
-      this.isBackendAvailable = false;
-      this.backendChecked = true;
-      return false;
     }
+    this.isBackendAvailable = false;
+    this.backendChecked = true;
+    return false;
   }
 
   public getBackendStatus() {
     return {
-      configured: Boolean(API_URL),
+      configured: true,
       available: this.isBackendAvailable,
       checked: this.backendChecked,
-      url: API_URL || 'http://localhost:5000',
+      url: this.activeUrl || 'http://localhost:5000',
     };
   }
 
@@ -199,7 +215,7 @@ class ApiService {
   public async getMachines(): Promise<Machine[]> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/machines`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(this.getUrl('/api/machines'), { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
           const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
@@ -229,7 +245,7 @@ class ApiService {
   public async getMachineById(id: string): Promise<Machine | null> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/machines/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(this.getUrl(`/api/machines/${encodeURIComponent(id)}`), { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
           const item = data?.data || data;
@@ -260,7 +276,7 @@ class ApiService {
   public async getMachineHistory(id: string, hours = 24): Promise<TelemetryPoint[]> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/machines/${encodeURIComponent(id)}/history?hours=${hours}`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(this.getUrl(`/api/machines/${encodeURIComponent(id)}/history?hours=${hours}`), { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
           const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
@@ -315,7 +331,7 @@ class ApiService {
   public async getAlerts(): Promise<Alert[]> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/alerts`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(this.getUrl('/api/alerts'), { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
           const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
@@ -345,7 +361,7 @@ class ApiService {
   public async updateAlert(id: string, updates: Partial<Alert>): Promise<Alert | null> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/alerts/${encodeURIComponent(id)}`, {
+        const res = await fetch(this.getUrl(`/api/alerts/${encodeURIComponent(id)}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
@@ -377,7 +393,7 @@ class ApiService {
   public async getMaintenance(): Promise<Maintenance[]> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/maintenance`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(this.getUrl('/api/maintenance'), { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
           const list = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
@@ -407,7 +423,7 @@ class ApiService {
   public async updateMaintenance(id: string, updates: Partial<Maintenance>): Promise<Maintenance | null> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/maintenance/${encodeURIComponent(id)}`, {
+        const res = await fetch(this.getUrl(`/api/maintenance/${encodeURIComponent(id)}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
@@ -439,7 +455,7 @@ class ApiService {
   public async getAnalytics(machineId: string): Promise<MachineAnalytics | null> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/analytics/${encodeURIComponent(machineId)}`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(this.getUrl(`/api/analytics/${encodeURIComponent(machineId)}`), { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
           this.isBackendAvailable = true;
@@ -457,7 +473,7 @@ class ApiService {
   public async getPrediction(machineId: string): Promise<Prediction | null> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/predictions/${encodeURIComponent(machineId)}`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(this.getUrl(`/api/predictions/${encodeURIComponent(machineId)}`), { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
           this.isBackendAvailable = true;
@@ -496,7 +512,7 @@ class ApiService {
   }): Promise<Prediction> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/predictions/analyze`, {
+        const res = await fetch(this.getUrl('/api/predictions/analyze'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(params),
@@ -547,7 +563,7 @@ class ApiService {
   }): Promise<Prediction> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/simulator/predict`, {
+        const res = await fetch(this.getUrl('/api/simulator/predict'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(params),
@@ -585,7 +601,7 @@ class ApiService {
   ): Promise<{ machine: Machine; prediction: Prediction; alert?: Alert }> {
     if (this.isBackendAvailable || !this.backendChecked) {
       try {
-        const res = await fetch(`${API_URL}/api/simulator/inject-anomaly/${encodeURIComponent(machineId)}`, {
+        const res = await fetch(this.getUrl(`/api/simulator/inject-anomaly/${encodeURIComponent(machineId)}`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(telemetry),
