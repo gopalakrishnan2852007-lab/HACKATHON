@@ -25,12 +25,18 @@ export function useFactoryData() {
   useEffect(() => {
     const unsubscribe = dataService.subscribe(updateAllState);
 
-    apiService.checkBackendHealth().then(() => {
-      setBackendStatus(apiService.getBackendStatus());
-    });
+    const checkHealth = () => {
+      apiService.checkBackendHealth().then(() => {
+        setBackendStatus(apiService.getBackendStatus());
+      });
+    };
+
+    checkHealth();
+    const interval = setInterval(checkHealth, 3000);
 
     return () => {
       unsubscribe();
+      clearInterval(interval);
     };
   }, [updateAllState]);
 

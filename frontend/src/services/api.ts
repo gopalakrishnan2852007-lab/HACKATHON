@@ -167,11 +167,11 @@ class ApiService {
       const res = await fetch(`${API_URL}/api/health`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(2500),
+        signal: AbortSignal.timeout(6000),
       });
       if (res.ok) {
         const data = await res.json();
-        const ok = Boolean(data && (data.success || data.status === 'ok' || data.data?.status === 'ok'));
+        const ok = Boolean(data && (data.success !== false || data.status === 'ok' || data.data?.status === 'ok'));
         this.isBackendAvailable = ok;
         this.backendChecked = true;
         return ok;

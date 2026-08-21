@@ -186,7 +186,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigateToAlerts, onNavigateTo
               title="System Connectivity Info"
             >
               <Database className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="font-mono-data hidden xl:inline text-[11px]">
+              <span className="font-mono-data text-[11px]">
                 {backendStatus.available ? "CONNECTED" : "BACKEND OFFLINE"}
               </span>
               <span className={cn(
