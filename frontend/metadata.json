@@ -1,0 +1,6 @@
+{
+  "name": "AIoT Machine Health Monitoring Platform",
+  "description": "Real-time industrial IoT machine health monitoring, AI anomaly detection, predictive failure analytics, and factory command center.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

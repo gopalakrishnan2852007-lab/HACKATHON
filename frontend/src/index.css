@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-display: 'Chakra Petch', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #030712;
+    color: #f3f4f6;
+  }
+}
+
+.font-mono-data {
+  font-family: 'JetBrains Mono', monospace;
+  font-feature-settings: "tnum" on, "zero" on;
+}
+
+.font-industrial {
+  font-family: 'Chakra Petch', sans-serif;
+  letter-spacing: 0.04em;
+}
+
+/* Industrial Grid Background */
+.bg-industrial-grid {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(30, 41, 59, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(30, 41, 59, 0.35) 1px, transparent 1px);
+}
+
+.bg-radial-glow {
+  background: radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.12) 0%, transparent 70%);
+}
+
+.bg-alert-glow {
+  background: radial-gradient(circle at 50% 0%, rgba(239, 68, 68, 0.15) 0%, transparent 70%);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0f19;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
